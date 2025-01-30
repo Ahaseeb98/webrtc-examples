@@ -1,0 +1,3 @@
+[submodule "reactnative"]
+	path = reactnative
+	url = ./reactnative
