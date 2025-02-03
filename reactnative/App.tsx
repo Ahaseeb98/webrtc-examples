@@ -1,11 +1,13 @@
 import React from 'react';
-import {Text, View} from 'react-native';
+import Navigation from './src/Navigation';
+import {StatusBar} from 'react-native';
 
 const App = () => {
   return (
-    <View>
-      <Text>hello</Text>
-    </View>
+    <>
+      <StatusBar translucent barStyle={'dark-content'} />
+      <Navigation />
+    </>
   );
 };
 
