@@ -8,6 +8,7 @@ import Calling from '../Screens/Calling';
 import Receiving from '../Screens/Receiving';
 import InCall from '../Screens/InCall';
 import {NavigationContainer} from '@react-navigation/native';
+import {navigationRef} from '../Utils/navigationRef';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -27,7 +28,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 
 const Navigation = () => {
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator>
         <Stack.Screen name="Home" component={Home} />
         <Stack.Screen name="Calling" component={Calling} />
