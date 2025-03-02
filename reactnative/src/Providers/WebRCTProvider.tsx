@@ -18,8 +18,9 @@ import io, {Socket} from 'socket.io-client';
 import {Platform} from 'react-native';
 import inCallManager from 'react-native-incall-manager';
 import {navigate, navigationRef} from '../Utils/navigationRef';
+import {MMKV} from 'react-native-mmkv';
 
-const SOCKET_SERVER_URL = 'http://10.1.101.21:3500';
+const SOCKET_SERVER_URL = 'http://192.168.100.87:3500';
 
 interface WebRTCContextType {
   localStream: MediaStream | null;
@@ -46,18 +47,26 @@ interface WebRTCProviderProps {
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const callerId = null;
+  const [myId, setMyId] = useState('');
   const otherUserId = useRef<string | null>(null);
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const socket = useRef<Socket | null>(null);
   const remoteRTCMessage = useRef<any>(null);
   const [localMicOn, setLocalMicOn] = useState(true);
   const [localWebcamOn, setLocalWebcamOn] = useState(true);
-
+  useEffect(() => {
+    const storage = new MMKV();
+    const storedValue = storage.getString('myId');
+    if (!storedValue) {
+      storage.set('myId', myId);
+    } else {
+      setMyId(storedValue);
+    }
+  }, [myId]);
   useEffect(() => {
     socket.current = io(SOCKET_SERVER_URL, {
       transports: ['websocket'],
-      query: {callerId},
+      query: {callerId: myId},
     });
 
     socket.current?.on('connect', () => {
@@ -95,7 +104,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     return () => {
       socket.current?.disconnect();
     };
-  }, [callerId]);
+  }, [myId]);
 
   const setupMediaStream = async () => {
     try {
@@ -218,7 +227,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
   const value: WebRTCContextType = {
     localStream,
     remoteStream,
-    callerId,
+    callerId: myId,
     otherUserId: otherUserId.current,
     setOtherUserId: (id: string) => {
       otherUserId.current = id;

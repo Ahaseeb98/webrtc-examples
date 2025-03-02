@@ -28,7 +28,7 @@ const IconButton: React.FC<IconButtonProps & TouchableOpacityProps> = ({
     <TouchableOpacity
       style={[styles.button, style, {backgroundColor}]}
       onPress={onPress}>
-      {React.cloneElement(IconComponent, {size, color})}{' '}
+      {React.cloneElement(IconComponent, {size, color})}
       {/* Pass size and color props to the icon */}
     </TouchableOpacity>
   );
