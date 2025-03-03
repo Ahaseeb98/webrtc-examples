@@ -1,6 +1,6 @@
 /* eslint-disable react-native/no-inline-styles */
 import React, {useCallback} from 'react';
-import {Text, View, StyleSheet} from 'react-native';
+import {Text, View, StyleSheet, Platform} from 'react-native';
 import {RTCView} from 'react-native-webrtc';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {RouteProp, useFocusEffect, useRoute} from '@react-navigation/native';
@@ -35,6 +35,9 @@ const InCall = () => {
       };
     }, []),
   );
+
+  console.log(remoteStream, 'REMOTE', Platform.Version);
+
   return (
     <View style={styles.container}>
       <View style={{flex: 1, zIndex: 10}}>

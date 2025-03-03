@@ -20,7 +20,7 @@ import inCallManager from 'react-native-incall-manager';
 import {navigate, navigationRef} from '../Utils/navigationRef';
 import {MMKV} from 'react-native-mmkv';
 
-const SOCKET_SERVER_URL = 'http://192.168.100.87:3500';
+const SOCKET_SERVER_URL = 'http://192.168.100.116:3500';
 
 interface WebRTCContextType {
   localStream: MediaStream | null;
@@ -81,6 +81,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     socket.current?.on('newCall', data => {
       remoteRTCMessage.current = data.rtcMessage;
       otherUserId.current = data.callerId;
+      console.log(data, 'LOLOLOl');
       navigate('Receiving', {calleeId: data.roomId});
     });
 
@@ -175,15 +176,32 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
   const initializePeerConnection = () => {
     peerConnection.current = new RTCPeerConnection({
       iceServers: [
-        {
-          urls: 'turn:turnserver.erpaccesspro.com:3478',
-          username: 'username1:password1',
-          credential: 'username2:password2',
-        },
+        {urls: 'stun:stun.l.google.com:19302'},
+        {urls: 'stun:stun1.l.google.com:19302'},
+        {urls: 'stun:stun2.l.google.com:19302'},
       ],
     });
-  };
 
+    peerConnection.current.onicecandidate = event => {
+      if (event.candidate) {
+        socket.current.emit('ICEcandidate', {
+          calleeId: otherUserId.current,
+          rtcMessage: {
+            candidate: event.candidate.candidate,
+            sdpMid: event.candidate.sdpMid,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+          },
+        });
+      } else {
+        console.log('End of candidates.');
+      }
+    };
+
+    peerConnection.current.ontrack = event => {
+      const remoteStream1 = event.streams[0];
+      setRemoteStream(remoteStream1);
+    };
+  };
   const leave = (isSocket?: boolean, roomId?: string) => {
     localStream?.getTracks().forEach(track => track.stop());
     peerConnection.current?.close();
