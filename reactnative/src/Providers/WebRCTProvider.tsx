@@ -82,7 +82,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       remoteRTCMessage.current = data.rtcMessage;
       otherUserId.current = data.callerId;
       console.log(data, 'LOLOLOl');
-      navigate('Receiving', {calleeId: data.roomId});
+      navigate('Receiving', {otherId: data.callerId});
     });
 
     socket.current?.on('callAnswered', data => {
@@ -94,6 +94,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     });
 
     socket.current?.on('ICEcandidate', data => {
+      console.log(data, 'IN ICE REC');
       if (peerConnection.current) {
         peerConnection.current
           .addIceCandidate(new RTCIceCandidate(data.rtcMessage))
@@ -142,7 +143,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       await setupMediaStream();
       const offer = await peerConnection.current?.createOffer({});
       await peerConnection.current?.setLocalDescription(offer);
-      console.log('CALLLLL');
+      console.log('CALLLLL', roomId, otherUserId.current);
       socket.current?.emit('call', {
         calleeId: otherUserId.current,
         rtcMessage: offer,
@@ -170,7 +171,9 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       roomId,
     });
 
-    navigate('InCall', {calleeId: roomId});
+    console.log('processAccept', roomId, otherUserId.current);
+
+    navigate('InCall', {otherId: roomId});
   };
 
   const initializePeerConnection = () => {
@@ -183,6 +186,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     });
 
     peerConnection.current.onicecandidate = event => {
+      console.log('ONICE');
       if (event.candidate) {
         socket.current.emit('ICEcandidate', {
           calleeId: otherUserId.current,
@@ -198,12 +202,17 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     };
 
     peerConnection.current.ontrack = event => {
+      console.log('ONTRACK');
       const remoteStream1 = event.streams[0];
       setRemoteStream(remoteStream1);
     };
   };
   const leave = (isSocket?: boolean, roomId?: string) => {
     localStream?.getTracks().forEach(track => track.stop());
+
+    peerConnection.current?.getTransceivers().forEach(transceiver => {
+      transceiver.stop();
+    });
     peerConnection.current?.close();
     peerConnection.current = null;
     setLocalStream(null);
@@ -213,6 +222,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       socket.current?.emit('endCall', {calleeId: otherUserId.current, roomId});
     }
     otherUserId.current = null;
+    console.log(navigationRef, 'navigationRef');
     navigationRef?.canGoBack() && navigationRef?.goBack();
   };
 

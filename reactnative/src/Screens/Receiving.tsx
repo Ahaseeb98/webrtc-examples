@@ -13,7 +13,7 @@ const Receiving = () => {
   const params = useRoute<ReceivingScreenRouteProp>();
   const otherUserId = params.params.otherId;
   const {processAccept} = useWebRTC();
-
+  console.log(params.params, 'params.params');
   return (
     <View style={styles.container}>
       <Text style={styles.h1}>Call from..</Text>

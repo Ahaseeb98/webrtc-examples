@@ -44,7 +44,7 @@ const InCall = () => {
         {remoteStream ? (
           <RTCView
             objectFit={'cover'}
-            style={styles.localStream}
+            style={styles.remoteStream}
             streamURL={remoteStream.toURL()}
           />
         ) : (
@@ -59,9 +59,7 @@ const InCall = () => {
             streamURL={localStream.toURL()}
           />
         ) : (
-          <View style={styles.paused}>
-            <Text style={{color: '#fff'}}>Local video is paused</Text>
-          </View>
+          <></>
         )}
       </View>
 
@@ -122,14 +120,28 @@ export default InCall;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   h1: {
     fontSize: 24,
     fontWeight: 'bold',
   },
-  localStream: {flex: 1, backgroundColor: '#050A0E', marginTop: 8},
+  remoteStream: {
+    flex: 1,
+    backgroundColor: '#050A0E',
+    marginTop: 8,
+    width: '100%',
+  },
+  localStream: {
+    backgroundColor: '#050A0E',
+    marginTop: 8,
+    width: 100,
+    height: 200,
+    borderRadius: 10,
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    zIndex: 100,
+  },
   paused: {
     flex: 1,
     justifyContent: 'center',
