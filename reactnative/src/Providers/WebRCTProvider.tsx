@@ -188,7 +188,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     peerConnection.current.onicecandidate = event => {
       console.log('ONICE');
       if (event.candidate) {
-        socket.current.emit('ICEcandidate', {
+        socket.current?.emit('ICEcandidate', {
           calleeId: otherUserId.current,
           rtcMessage: {
             candidate: event.candidate.candidate,
