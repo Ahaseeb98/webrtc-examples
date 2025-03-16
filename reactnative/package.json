@@ -7,13 +7,15 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/stack": "^7.1.1",
     "react": "18.3.1",
     "react-native": "0.77.0",
+    "react-native-callkeep": "^4.3.16",
     "react-native-gesture-handler": "^2.22.1",
     "react-native-incall-manager": "^4.2.0",
     "react-native-mmkv": "^3.2.0",
@@ -46,5 +48,6 @@
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "packageManager": "yarn@3.8.4+sha512.2fa718fa817b36ddbeb1be69b765d64749afaf0e0d582c04359f12fbd5f7f20ec52e189a531afe2e4903d792532065711adf56e0d0f559d6461a59a703ec8b44"
 }

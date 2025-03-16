@@ -184,7 +184,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
         {urls: 'stun:stun2.l.google.com:19302'},
       ],
     });
-
+    // @ts-ignore
     peerConnection.current.onicecandidate = event => {
       console.log('ONICE');
       if (event.candidate) {
@@ -201,6 +201,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       }
     };
 
+    // @ts-ignore
     peerConnection.current.ontrack = event => {
       console.log('ONTRACK');
       const remoteStream1 = event.streams[0];
