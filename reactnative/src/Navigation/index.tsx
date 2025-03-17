@@ -29,7 +29,10 @@ const Stack = createStackNavigator<RootStackParamList>();
 const Navigation = () => {
   return (
     <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+        }}>
         <Stack.Screen name="Home" component={Home} />
         <Stack.Screen name="Calling" component={Calling} />
         <Stack.Screen name="Receiving" component={Receiving} />
