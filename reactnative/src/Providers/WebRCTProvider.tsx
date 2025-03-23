@@ -15,7 +15,7 @@ import {
   mediaDevices,
 } from 'react-native-webrtc';
 import io, {Socket} from 'socket.io-client';
-import {Platform} from 'react-native';
+import {AppState, Platform} from 'react-native';
 import inCallManager from 'react-native-incall-manager';
 import {navigate, navigationRef} from '../Utils/navigationRef';
 import {MMKV} from 'react-native-mmkv';
@@ -67,6 +67,8 @@ interface WebRTCProviderProps {
 }
 
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
+  const appState = useRef(AppState.currentState);
+
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [myId, setMyId] = useState('');
@@ -85,6 +87,21 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       setMyId(storedValue);
     }
   }, [myId]);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: any) => {
+      appState.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     RNCallKeep.addEventListener('answerCall', async ({callUUID}) => {
@@ -148,14 +165,20 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       const storage = new MMKV();
       // Save room ID for CallKeep's answerCall event
       storage.set('pendingCall', callUUID);
-
-      RNCallKeep.displayIncomingCall(
-        callUUID, // Generate a unique ID for this call
-        data.callerId || 'Unknown Caller',
-        'Incoming Video Call',
-        'generic', // Call type
-        true, // Video call flag
-      );
+      if (appState.current !== 'active') {
+        RNCallKeep.displayIncomingCall(
+          callUUID,
+          data.callerId || 'Unknown Caller',
+          'Incoming Video Call',
+          'generic',
+          true,
+        );
+      } else {
+        console.log(
+          'App is in the foreground. Skipping CallKeep notification.',
+        );
+        navigate('Receiving', {otherId: data.callerId});
+      }
       // navigate('Receiving', {otherId: data.callerId});
     });
 
