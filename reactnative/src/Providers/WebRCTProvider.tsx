@@ -15,12 +15,34 @@ import {
   mediaDevices,
 } from 'react-native-webrtc';
 import io, {Socket} from 'socket.io-client';
-import {Platform} from 'react-native';
+import {AppState, Platform} from 'react-native';
 import inCallManager from 'react-native-incall-manager';
 import {navigate, navigationRef} from '../Utils/navigationRef';
 import {MMKV} from 'react-native-mmkv';
 
-const SOCKET_SERVER_URL = 'http://192.168.100.116:3500';
+import RNCallKeep from 'react-native-callkeep';
+
+const options = {
+  ios: {
+    appName: 'My app name',
+  },
+  android: {
+    alertTitle: 'Permissions required',
+    alertDescription: 'This application needs to access your phone accounts',
+    cancelButton: 'Cancel',
+    okButton: 'ok',
+    additionalPermissions: [],
+    // Required to get audio in background when using Android 11
+    foregroundService: {
+      channelId: 'call',
+      channelName: 'Foreground service for my app',
+      notificationTitle: 'My app is running on background',
+      notificationIcon: 'Path to the resource icon of the notification',
+    },
+  },
+};
+
+const SOCKET_SERVER_URL = 'http://192.168.100.124:3500';
 
 interface WebRTCContextType {
   localStream: MediaStream | null;
@@ -45,6 +67,8 @@ interface WebRTCProviderProps {
 }
 
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
+  const appState = useRef(AppState.currentState);
+
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [myId, setMyId] = useState('');
@@ -63,6 +87,59 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       setMyId(storedValue);
     }
   }, [myId]);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: any) => {
+      appState.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    RNCallKeep.addEventListener('answerCall', async ({callUUID}) => {
+      const storage = new MMKV();
+      const pendingCallId = storage.getString('pendingCall');
+      console.log('callUUID', pendingCallId, callUUID);
+      if (pendingCallId === callUUID) {
+        await processAccept(callUUID);
+        RNCallKeep.backToForeground();
+        storage.delete('pendingCall'); // Clear pending call tracking
+      }
+    });
+
+    RNCallKeep.addEventListener('endCall', ({callUUID}) => {
+      console.log(`Call rejected: ${callUUID}`);
+      leave(); // Ensure cleanup
+
+      console.log(callUUID, 'callUUID', myId);
+    });
+
+    return () => {
+      RNCallKeep.removeEventListener('answerCall');
+      RNCallKeep.removeEventListener('endCall');
+    };
+  }, []);
+
+  useEffect(() => {
+    RNCallKeep.setup(options)
+      .then(accepted => {
+        if (accepted) {
+          RNCallKeep.setAvailable(true);
+        }
+      })
+      .catch(error => {
+        console.log(error, 'Error');
+      });
+  }, []);
+
   useEffect(() => {
     socket.current = io(SOCKET_SERVER_URL, {
       transports: ['websocket'],
@@ -82,7 +159,27 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       remoteRTCMessage.current = data.rtcMessage;
       otherUserId.current = data.callerId;
       console.log(data, 'LOLOLOl');
-      navigate('Receiving', {otherId: data.callerId});
+      const callUUID = data.roomId; // Unique ID for CallKeep
+
+      // Track the call for post-answer logic
+      const storage = new MMKV();
+      // Save room ID for CallKeep's answerCall event
+      storage.set('pendingCall', callUUID);
+      if (appState.current !== 'active') {
+        RNCallKeep.displayIncomingCall(
+          callUUID,
+          data.callerId || 'Unknown Caller',
+          'Incoming Video Call',
+          'generic',
+          true,
+        );
+      } else {
+        console.log(
+          'App is in the foreground. Skipping CallKeep notification.',
+        );
+        navigate('Receiving', {otherId: data.callerId});
+      }
+      // navigate('Receiving', {otherId: data.callerId});
     });
 
     socket.current?.on('callAnswered', data => {
@@ -173,7 +270,9 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
 
     console.log('processAccept', roomId, otherUserId.current);
 
-    navigate('InCall', {otherId: roomId});
+    setTimeout(() => {
+      navigate('InCall', {otherId: roomId});
+    }, 500); // Add a slight delay to ensure connection stability
   };
 
   const initializePeerConnection = () => {
@@ -184,7 +283,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
         {urls: 'stun:stun2.l.google.com:19302'},
       ],
     });
-
+    // @ts-ignore
     peerConnection.current.onicecandidate = event => {
       console.log('ONICE');
       if (event.candidate) {
@@ -201,6 +300,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       }
     };
 
+    // @ts-ignore
     peerConnection.current.ontrack = event => {
       console.log('ONTRACK');
       const remoteStream1 = event.streams[0];
@@ -208,6 +308,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     };
   };
   const leave = (isSocket?: boolean, roomId?: string) => {
+    console.log(roomId, 'WHAT_ID BRUH');
     localStream?.getTracks().forEach(track => track.stop());
 
     peerConnection.current?.getTransceivers().forEach(transceiver => {
@@ -222,8 +323,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       socket.current?.emit('endCall', {calleeId: otherUserId.current, roomId});
     }
     otherUserId.current = null;
-    console.log(navigationRef, 'navigationRef');
-    navigationRef?.canGoBack() && navigationRef?.goBack();
+
+    if (roomId) {
+      RNCallKeep.endCall(roomId as string);
+    }
+
+    setTimeout(() => {
+      navigationRef?.navigate('Home');
+    }, 500);
   };
 
   const switchCamera = () => {

@@ -29,7 +29,7 @@ const Calling = () => {
       <View style={styles.content}>
         <IconButton
           backgroundColor="red"
-          onPress={() => leave()}
+          onPress={() => leave(true, otherUserId)}
           IconComponent={
             <MaterialIcons name="call-end" size={22} color={'#ffffff'} />
           }
