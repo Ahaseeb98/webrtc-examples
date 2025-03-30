@@ -16,3 +16,5 @@ Thumbs.db
 .lerna
 .yarn
 .pnp.*
+
+google-services.json
