@@ -1592,6 +1592,8 @@ PODS:
     - React-utils (= 0.77.0)
   - ReactNativeIncallManager (4.2.0):
     - React-Core
+  - RNCallKeep (4.3.16):
+    - React
   - RNGestureHandler (2.22.1):
     - DoubleConversion
     - glog
@@ -1679,6 +1681,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - RNVoipPushNotification (3.3.2):
+    - React-Core
   - SocketRocket (0.7.1)
   - Yoga (0.0.0)
 
@@ -1754,9 +1758,11 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeIncallManager (from `../node_modules/react-native-incall-manager`)
+  - RNCallKeep (from `../node_modules/react-native-callkeep`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNVectorIcons (from `../node_modules/react-native-vector-icons`)
+  - RNVoipPushNotification (from `../node_modules/react-native-voip-push-notification`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -1904,12 +1910,16 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   ReactNativeIncallManager:
     :path: "../node_modules/react-native-incall-manager"
+  RNCallKeep:
+    :path: "../node_modules/react-native-callkeep"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   RNVectorIcons:
     :path: "../node_modules/react-native-vector-icons"
+  RNVoipPushNotification:
+    :path: "../node_modules/react-native-voip-push-notification"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -1984,12 +1994,14 @@ SPEC CHECKSUMS:
   ReactCodegen: c08a5113d9c9c895fe10f3c296f74c6b705a60a9
   ReactCommon: 1bd2dc684d7992acbf0dfee887b89a57a1ead86d
   ReactNativeIncallManager: ef7b845e166f04cf8ddf433d8a23227b01cef87a
+  RNCallKeep: 1930a01d8caf48f018be4f2db0c9f03405c2f977
   RNGestureHandler: 657b9ff1f40ee3ace3de2bcf467f86d9a6874197
   RNScreens: 5d61e452b51e7c23b3fcb9f16c4967d683a60a9d
   RNVectorIcons: bd818296a51dc2bb8c3bd97a3ca399df1afe216d
+  RNVoipPushNotification: e5edde96849c0133ebc7e900dc30c8c221cfb690
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 78d74e245ed67bb94275a1316cdc170b9b7fe884
 
-PODFILE CHECKSUM: 10aa0dba86a6cb383033857b6edf11acdff801a1
+PODFILE CHECKSUM: 527761d769009aca07e852a775e935c17857829d
 
 COCOAPODS: 1.16.2

@@ -42,7 +42,7 @@ const options = {
   },
 };
 
-const SOCKET_SERVER_URL = 'http://192.168.100.124:3500';
+const SOCKET_SERVER_URL = 'http://192.168.100.128:3500';
 
 interface WebRTCContextType {
   localStream: MediaStream | null;
