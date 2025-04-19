@@ -43,6 +43,7 @@ const InCall = () => {
       <View style={{flex: 1, zIndex: 10}}>
         {remoteStream ? (
           <RTCView
+            key={remoteStream.id} // Force re-render on stream change
             objectFit={'cover'}
             style={styles.remoteStream}
             streamURL={remoteStream.toURL()}

@@ -42,7 +42,7 @@ const options = {
   },
 };
 
-const SOCKET_SERVER_URL = 'http://192.168.100.128:3500';
+const SOCKET_SERVER_URL = 'http://192.168.100.165:3500';
 
 interface WebRTCContextType {
   localStream: MediaStream | null;
@@ -303,8 +303,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     // @ts-ignore
     peerConnection.current.ontrack = event => {
       console.log('ONTRACK');
-      const remoteStream1 = event.streams[0];
-      setRemoteStream(remoteStream1);
+      console.log('Got remote track', event.streams);
+      if (event.streams && event.streams[0]) {
+        setRemoteStream(event.streams[0]);
+      }
     };
   };
   const leave = (isSocket?: boolean, roomId?: string) => {
