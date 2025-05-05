@@ -11,6 +11,7 @@ const Home = () => {
   const navigation = useNavigation<NavigationProps>();
   const [myId, setMyId] = useState(generateUID());
   const [otherId, setOtherId] = useState('');
+
   useFocusEffect(
     useCallback(() => {
       const storage = new MMKV();
@@ -27,7 +28,7 @@ const Home = () => {
     if (!otherId) {
       Alert.alert('Other user id is required');
     } else {
-      navigation.navigate('Calling', {otherId});
+      navigation.navigate('Calling', {otherId, roomId: otherId});
     }
   };
   return (

@@ -14,12 +14,15 @@ export type RootStackParamList = {
   Home: undefined;
   Calling: {
     otherId: string;
+    roomId: string;
   };
   Receiving: {
     otherId: string;
+    roomId: string;
   };
   InCall: {
     otherId: string;
+    roomId: string;
   };
 };
 export type NavigationProps = StackNavigationProp<RootStackParamList>;

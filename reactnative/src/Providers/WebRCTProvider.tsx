@@ -15,11 +15,10 @@ import {
   mediaDevices,
 } from 'react-native-webrtc';
 import io, {Socket} from 'socket.io-client';
-import {AppState, Platform} from 'react-native';
+import {AppState} from 'react-native';
 import inCallManager from 'react-native-incall-manager';
 import {navigate, navigationRef} from '../Utils/navigationRef';
 import {MMKV} from 'react-native-mmkv';
-
 import RNCallKeep from 'react-native-callkeep';
 
 const options = {
@@ -32,7 +31,6 @@ const options = {
     cancelButton: 'Cancel',
     okButton: 'ok',
     additionalPermissions: [],
-    // Required to get audio in background when using Android 11
     foregroundService: {
       channelId: 'call',
       channelName: 'Foreground service for my app',
@@ -42,7 +40,7 @@ const options = {
   },
 };
 
-const SOCKET_SERVER_URL = 'http://192.168.100.165:3500';
+const SOCKET_SERVER_URL = 'http://192.168.100.180:3500';
 
 interface WebRTCContextType {
   localStream: MediaStream | null;
@@ -58,6 +56,7 @@ interface WebRTCContextType {
   toggleMic: () => void;
   localMicOn: boolean;
   localWebcamOn: boolean;
+  joinRoom: (roomId: string) => void;
 }
 
 const WebRTCContext = createContext<WebRTCContextType | null>(null);
@@ -68,7 +67,6 @@ interface WebRTCProviderProps {
 
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
   const appState = useRef(AppState.currentState);
-
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [myId, setMyId] = useState('');
@@ -78,15 +76,19 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
   const remoteRTCMessage = useRef<any>(null);
   const [localMicOn, setLocalMicOn] = useState(true);
   const [localWebcamOn, setLocalWebcamOn] = useState(true);
+  const currentRoomId = useRef<string | null>(null);
+
   useEffect(() => {
     const storage = new MMKV();
     const storedValue = storage.getString('myId');
     if (!storedValue) {
-      storage.set('myId', myId);
+      const newId = Math.random().toString(36).substring(7);
+      storage.set('myId', newId);
+      setMyId(newId);
     } else {
       setMyId(storedValue);
     }
-  }, [myId]);
+  }, []);
 
   useEffect(() => {
     const handleAppStateChange = (nextAppState: any) => {
@@ -107,19 +109,15 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     RNCallKeep.addEventListener('answerCall', async ({callUUID}) => {
       const storage = new MMKV();
       const pendingCallId = storage.getString('pendingCall');
-      console.log('callUUID', pendingCallId, callUUID);
       if (pendingCallId === callUUID) {
         await processAccept(callUUID);
         RNCallKeep.backToForeground();
-        storage.delete('pendingCall'); // Clear pending call tracking
+        storage.delete('pendingCall');
       }
     });
 
     RNCallKeep.addEventListener('endCall', ({callUUID}) => {
-      console.log(`Call rejected: ${callUUID}`);
-      leave(); // Ensure cleanup
-
-      console.log(callUUID, 'callUUID', myId);
+      leave(true, callUUID);
     });
 
     return () => {
@@ -136,7 +134,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
         }
       })
       .catch(error => {
-        console.log(error, 'Error');
+        console.log('CallKeep setup error:', error);
       });
   }, []);
 
@@ -151,52 +149,70 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     });
 
     socket.current?.on('callEnded', () => {
-      console.log('CALL_ENDED', Platform.OS);
+      console.log('Call ended by remote party');
       leave(true);
     });
 
-    socket.current?.on('newCall', data => {
-      remoteRTCMessage.current = data.rtcMessage;
-      otherUserId.current = data.callerId;
-      console.log(data, 'LOLOLOl');
-      const callUUID = data.roomId; // Unique ID for CallKeep
+    socket.current?.on(
+      'incomingCall',
+      (data: {callerId: string; roomId: string}) => {
+        otherUserId.current = data.callerId;
+        currentRoomId.current = data.roomId;
 
-      // Track the call for post-answer logic
-      const storage = new MMKV();
-      // Save room ID for CallKeep's answerCall event
-      storage.set('pendingCall', callUUID);
-      if (appState.current !== 'active') {
-        RNCallKeep.displayIncomingCall(
-          callUUID,
-          data.callerId || 'Unknown Caller',
-          'Incoming Video Call',
-          'generic',
-          true,
-        );
-      } else {
-        console.log(
-          'App is in the foreground. Skipping CallKeep notification.',
-        );
-        navigate('Receiving', {otherId: data.callerId});
-      }
-      // navigate('Receiving', {otherId: data.callerId});
+        const callUUID = data.roomId;
+        const storage = new MMKV();
+        storage.set('pendingCall', callUUID);
+
+        if (appState.current !== 'active') {
+          RNCallKeep.displayIncomingCall(
+            callUUID,
+            data.callerId || 'Unknown Caller',
+            'Incoming Video Call',
+            'generic',
+            true,
+          );
+        } else {
+          console.log(
+            'App is in the foreground. Navigating to receiving screen.',
+          );
+          navigate('Receiving', {otherId: data.callerId, roomId: data.roomId});
+        }
+      },
+    );
+
+    socket.current?.on(
+      'inviteResponse',
+      async (data: {accepted: boolean; roomId: string}) => {
+        if (data.accepted) {
+          // Join the room first
+
+          currentRoomId.current = data.roomId;
+
+          // Then proceed with call setup
+          if (remoteRTCMessage.current) {
+            await peerConnection.current?.setRemoteDescription(
+              new RTCSessionDescription(remoteRTCMessage.current),
+            );
+          }
+          navigate('InCall', {roomId: data.roomId});
+        } else {
+          leave(true, data.roomId);
+        }
+      },
+    );
+
+    // Add room joined confirmation handler
+    socket.current?.on('roomJoined', (roomId: string) => {
+      console.log(`Successfully joined room: ${roomId}`);
+      // You can add any additional logic needed after joining
     });
 
-    socket.current?.on('callAnswered', data => {
-      remoteRTCMessage.current = data.rtcMessage;
-      peerConnection.current?.setRemoteDescription(
-        new RTCSessionDescription(remoteRTCMessage.current),
-      );
-      navigate('InCall', {});
-    });
-
-    socket.current?.on('ICEcandidate', data => {
-      console.log(data, 'IN ICE REC');
-      if (peerConnection.current) {
+    socket.current?.on('signal', (data: {type: string; data: any}) => {
+      console.log('SIGNAL', 'type', data);
+      if (data.type === 'ice-candidate') {
         peerConnection.current
-          .addIceCandidate(new RTCIceCandidate(data.rtcMessage))
-          .then(() => console.log('ICE candidate added'))
-          .catch(err => console.error('Error adding ICE candidate:', err));
+          ?.addIceCandidate(new RTCIceCandidate(data.data))
+          .catch(e => console.error('Error adding ICE candidate:', e));
       }
     });
 
@@ -222,13 +238,18 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
       };
       const stream = await mediaDevices.getUserMedia(mediaConstraints);
       setLocalStream(stream);
-      stream
-        .getTracks()
-        .forEach(track => peerConnection.current?.addTrack(track, stream));
+      inCallManager.start({media: 'video'});
+
+      if (peerConnection.current) {
+        stream.getTracks().forEach(track => {
+          peerConnection.current?.addTrack(track, stream);
+        });
+      }
 
       return stream;
     } catch (error) {
       console.error('Error getting media stream:', error);
+      throw error;
     }
   };
 
@@ -238,41 +259,68 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
         initializePeerConnection();
       }
       await setupMediaStream();
+
+      // Join the room first
+      socket.current?.emit('joinRoom', {roomId});
+      currentRoomId.current = roomId;
+
+      // Then create and send offer
       const offer = await peerConnection.current?.createOffer({});
       await peerConnection.current?.setLocalDescription(offer);
-      console.log('CALLLLL', roomId, otherUserId.current);
-      socket.current?.emit('call', {
+
+      socket.current?.emit('inviteToCall', {
         calleeId: otherUserId.current,
-        rtcMessage: offer,
         roomId,
       });
+
+      // Send the offer as a signal
+      socket.current?.emit('signal', {
+        roomId,
+        type: 'offer',
+        data: offer,
+      });
     } catch (error) {
-      console.log(error, 'error-processCall');
+      console.error('Error in processCall:', error);
+      leave(false, roomId);
     }
   };
 
   const processAccept = async (roomId: string) => {
-    if (!peerConnection.current) {
-      initializePeerConnection();
+    try {
+      if (!peerConnection.current) {
+        initializePeerConnection();
+      }
+      await setupMediaStream();
+
+      // Join the room first
+      socket.current?.emit('joinRoom', {roomId});
+      currentRoomId.current = roomId;
+
+      await peerConnection.current?.setRemoteDescription(
+        new RTCSessionDescription(remoteRTCMessage.current),
+      );
+
+      const answer = await peerConnection.current?.createAnswer();
+      await peerConnection.current?.setLocalDescription(answer);
+
+      socket.current?.emit('inviteResponse', {
+        callerId: otherUserId.current,
+        accepted: true,
+        roomId,
+      });
+
+      // Send the answer as a signal
+      socket.current?.emit('signal', {
+        roomId,
+        type: 'answer',
+        data: answer,
+      });
+
+      navigate('InCall', {roomId});
+    } catch (error) {
+      console.error('Error in processAccept:', error);
+      leave(false, roomId);
     }
-    await setupMediaStream();
-
-    await peerConnection.current?.setRemoteDescription(
-      new RTCSessionDescription(remoteRTCMessage.current),
-    );
-    const answer = await peerConnection.current?.createAnswer();
-    await peerConnection.current?.setLocalDescription(answer);
-    socket.current?.emit('answerCall', {
-      callerId: otherUserId.current,
-      rtcMessage: answer,
-      roomId,
-    });
-
-    console.log('processAccept', roomId, otherUserId.current);
-
-    setTimeout(() => {
-      navigate('InCall', {otherId: roomId});
-    }, 500); // Add a slight delay to ensure connection stability
   };
 
   const initializePeerConnection = () => {
@@ -283,52 +331,53 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
         {urls: 'stun:stun2.l.google.com:19302'},
       ],
     });
+
     // @ts-ignore
     peerConnection.current.onicecandidate = event => {
-      console.log('ONICE');
-      if (event.candidate) {
-        socket.current?.emit('ICEcandidate', {
-          calleeId: otherUserId.current,
-          rtcMessage: {
-            candidate: event.candidate.candidate,
-            sdpMid: event.candidate.sdpMid,
-            sdpMLineIndex: event.candidate.sdpMLineIndex,
-          },
+      if (event.candidate && currentRoomId.current) {
+        socket.current?.emit('signal', {
+          roomId: currentRoomId.current,
+          type: 'ice-candidate',
+          data: event.candidate,
         });
-      } else {
-        console.log('End of candidates.');
       }
     };
 
     // @ts-ignore
     peerConnection.current.ontrack = event => {
-      console.log('ONTRACK');
-      console.log('Got remote track', event.streams);
       if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0]);
       }
     };
   };
+
   const leave = (isSocket?: boolean, roomId?: string) => {
-    console.log(roomId, 'WHAT_ID BRUH');
+    const roomToLeave = roomId || currentRoomId.current;
+
+    if (roomToLeave) {
+      // Leave the room on socket.io
+      socket.current?.emit('leaveRoom', {roomId: roomToLeave});
+    }
     localStream?.getTracks().forEach(track => track.stop());
+    remoteStream?.getTracks().forEach(track => track.stop());
 
     peerConnection.current?.getTransceivers().forEach(transceiver => {
       transceiver.stop();
     });
     peerConnection.current?.close();
     peerConnection.current = null;
+
     setLocalStream(null);
     setRemoteStream(null);
     inCallManager.stop();
-    if (!isSocket) {
-      socket.current?.emit('endCall', {calleeId: otherUserId.current, roomId});
-    }
-    otherUserId.current = null;
 
-    if (roomId) {
-      RNCallKeep.endCall(roomId as string);
+    if (!isSocket && roomToLeave) {
+      socket.current?.emit('endCall', {roomId: roomToLeave});
+      RNCallKeep.endCall(roomToLeave);
     }
+
+    currentRoomId.current = null;
+    otherUserId.current = null;
 
     setTimeout(() => {
       navigationRef?.navigate('Home');
@@ -336,29 +385,29 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
   };
 
   const switchCamera = () => {
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track._switchCamera();
-      });
-    }
+    localStream?.getVideoTracks().forEach(track => {
+      track._switchCamera();
+    });
   };
 
   const toggleCamera = () => {
-    if (localStream) {
-      setLocalWebcamOn(!localWebcamOn);
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !localWebcamOn;
-      });
-    }
+    const newState = !localWebcamOn;
+    setLocalWebcamOn(newState);
+    localStream?.getVideoTracks().forEach(track => {
+      track.enabled = newState;
+    });
   };
 
   const toggleMic = () => {
-    if (localStream) {
-      setLocalMicOn(!localMicOn);
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !localMicOn;
-      });
-    }
+    const newState = !localMicOn;
+    setLocalMicOn(newState);
+    localStream?.getAudioTracks().forEach(track => {
+      track.enabled = newState;
+    });
+  };
+  const joinRoom = (roomId: string) => {
+    console.log('JOIN_ROOM');
+    socket.current?.emit('joinRoom', {roomId});
   };
 
   const value: WebRTCContextType = {
@@ -377,6 +426,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({children}) => {
     toggleMic,
     localMicOn,
     localWebcamOn,
+    joinRoom,
   };
 
   return (
